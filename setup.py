@@ -1,7 +1,7 @@
 
 
-
 if __name__ == '__main__':
-    print_hi('PyCharm')
+    import detectron2.detectron2
+    print('hoolahoop')
 
 
