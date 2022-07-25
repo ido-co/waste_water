@@ -52,11 +52,15 @@ if __name__ == '__main__':
     os.chdir(new_high_q_dir_path)
     for img in coco['images']:
         name = re.findall("[a-zA-Z0-9]+_\d+_\d+_\d+_[a-zA-Z0-9]+_\d+", img['file_name'])[0] + ".png"
+        img['file_name'] = re.sub(r".jpg$", ".png", img['file_name'])
         if name in check_dir:
             os.rename(name, img['file_name'])
             # print(f"copyed {name}")
         else:
             print(f"skipped {img['file_name']}")
+    #todo need to check if saving the json after the changes dont cous problems
+
+    # json.dump(coco,open(os.path.join(new_high_q_dir_path, "_annotations.coco.json"),'w'))
 
     print('-' * 10 + ('-' * 10))
     print('-' * 10 + f'number of files copyed = {len(os.listdir("./"))}')
