@@ -47,6 +47,7 @@ def postprocess_results(annotations, predictions):
     filtered = filtered.drop(['drop', 'index'], axis=1)
     with open("filtered.json", "w") as outfile:
         filtered.to_json(path_or_buf=outfile, orient='records')
+    return output_df
 
 
 def drop_overlapping(image_df, df, drop, ref):
@@ -63,4 +64,11 @@ def drop_overlapping(image_df, df, drop, ref):
 
 
 if __name__ == '__main__':
-    postprocess_results("_annotations.coco.json", "coco_instances_results.json")
+    hook = []
+    output_df = postprocess_results("../data/file_out/_annotations.coco.json", "../data/coco_instances_results.json")
+    import cv2, temp
+
+    # i = 2
+    # cv2.imshow(f"xmpl {i}", temp.visualize_by_dict(output_df[~output_df['drop']].iloc[i].to_dict()))
+    for i, row in output_df[~output_df['drop']].iterrows():
+        temp.visualize_by_dict(row.to_dict(),f"image_{i}.png")

@@ -14,8 +14,7 @@ import datetime
 import logging
 import gdown
 import copy
-
-
+import numpy as np
 
 def calc_iou(boxA, boxB):
     # determine the (x, y)-coordinates of the intersection rectangle

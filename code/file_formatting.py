@@ -58,7 +58,7 @@ if __name__ == '__main__':
             # print(f"copyed {name}")
         else:
             print(f"skipped {img['file_name']}")
-    #todo need to check if saving the json after the changes dont cous problems
+    # todo need to check if saving the json after the changes dont cause problems
 
     # json.dump(coco,open(os.path.join(new_high_q_dir_path, "_annotations.coco.json"),'w'))
 
