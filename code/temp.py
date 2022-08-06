@@ -86,6 +86,6 @@ def visualize_by_image_id(img_id, pred, dirname="tmp_dir",filename = "tmp_name")
     pred_d_d["annotations"][0]['bbox_mode'] = bbox_mode
     pred_d_d["annotations"][0]["bbox"] = pred["bbox"]
     pred_d_d["annotations"][0]["category_id"] = pred["category_id"]
-    vis = visualizer.draw_dataset_dict(obj)
+    vis = visualizer.draw_dataset_dict(pred_d_d)
     cv2.imwrite(f"../{dirname}/{filename}.png", vis.get_image()[:, :, ::-1])
-    return cv2
+    return vis.get_image()

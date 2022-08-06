@@ -141,6 +141,3 @@ if __name__ == '__main__':
     evaluator = COCOEvaluator("ww_test", cfg, False, output_dir="../output/")
     val_loader = build_detection_test_loader(cfg, "ww_test")
     out = inference_on_dataset(trainer.model, val_loader, evaluator)
-
-
-image_id_to_filename = {r["image_id"]: r["file_name"] for r in ww_test + ww_train + ww_eval}
