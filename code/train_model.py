@@ -3,6 +3,10 @@
 # Setup detectron2 logger
 import torch
 
+if __name__ == '__main__':
+    import sys
+
+    sys.path.append("/home/yandex/MLW2022/idoc/detectron2/detectron2/")
 import detectron2
 from detectron2.modeling import ROI_HEADS_REGISTRY
 from detectron2.modeling.roi_heads import Res5ROIHeads, select_foreground_proposals
@@ -41,9 +45,9 @@ from detectron2.data import DatasetCatalog, MetadataCatalog, build_detection_tes
 from detectron2.evaluation import COCOEvaluator, inference_on_dataset
 
 if __name__ == '__main__':
-    register_coco_instances("ww_train", {}, "../data/file_out/ww_data_train.json", "data/file_out/")
-    register_coco_instances("ww_eval", {}, "../data/file_out/ww_data_eval.json", "data/file_out/")
-    register_coco_instances("ww_test", {}, "../data/file_out/ww_data_test.json", "data/file_out/")
+    register_coco_instances("ww_train", {}, "../data/file_out/ww_data_train.json", "../data/file_out/")
+    register_coco_instances("ww_eval", {}, "../data/file_out/ww_data_eval.json", "../data/file_out/")
+    register_coco_instances("ww_test", {}, "../data/file_out/ww_data_test.json", "../data/file_out/")
 
 
     # makin my oun roi head
@@ -109,12 +113,27 @@ if __name__ == '__main__':
             orig_res = pred_instances, {}
             # orig_res = super().forward(images, features, proposals, targets)
             if not self.training:
-                print("=" * 9 + "my module" + "=" * 9)
+                # print("=" * 9 + "my module" + "=" * 9)
+                if self.filter_flag:
+                    ins = pred_instances[0]
+                    # ins[ins._fields["pred_classes"] == 2]._fields["pred_boxes"]
+                    keep = torch.ones(len(ins), dtype=bool,device=ins._fields["pred_classes"].device)
+                    iou_mat = detectron2.structures.pairwise_iou(
+                        ins[ins._fields["pred_classes"] == self.OPEN_FLOCK]._fields["pred_boxes"],
+                        ins[ins._fields["pred_classes"] == self.SPHERICAL_FLOCK]._fields["pred_boxes"])
+                    keep[ins._fields["pred_classes"] == self.OPEN_FLOCK] = iou_mat.max(dim=1).values > self.filter_threshold
+                    ins._fields["pred_classes"] = ins._fields["pred_classes"][keep]
+                    ins._fields["scores"] = ins._fields["scores"][keep]
+                    ins._fields["pred_boxes"] = ins._fields["pred_boxes"][keep]
+                    # detectron2.structures.boxes.pairwise_intersection(
+                    #     ins[ins._fields["pred_classes"] == 2]._fields["pred_boxes"],
+                    #     ins[ins._fields["pred_classes"] == 2]._fields["pred_boxes"])
                 # get the predicted boxes with pred_instances[0]._fields["pred_boxes"].tensor
                 # get the class predicted for that box with pred_instances[0]._fields["pred_classes"]
                 # todo need to make sure that removing a sample from the prediction don't break anything
-                print(orig_res)
-                print("=" * 22)
+
+                # print(orig_res)
+                # print("=" * 22)
             return orig_res
 
 
@@ -136,6 +155,10 @@ if __name__ == '__main__':
     os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
     trainer = MyTrainer(cfg)
     trainer.resume_or_load(resume=False)
+    trainer.model.roi_heads.filter_threshold = 0.13
+    trainer.model.roi_heads.SPHERICAL_FLOCK = 4
+    trainer.model.roi_heads.OPEN_FLOCK = 2
+    trainer.model.roi_heads.filter_flag = True
     trainer.train()
 
     evaluator = COCOEvaluator("ww_test", cfg, False, output_dir="../output/")
