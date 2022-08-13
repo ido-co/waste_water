@@ -8,7 +8,7 @@ if __name__ == '__main__':
 
     sys.path.append("/home/yandex/MLW2022/idoc/detectron2/detectron2/")
 import detectron2
-from detectron2.modeling import ROI_HEADS_REGISTRY
+from detectron2.modeling import ROI_HEADS_REGISTRY, build_model
 from detectron2.modeling.roi_heads import Res5ROIHeads, select_foreground_proposals
 from detectron2.utils.logger import setup_logger
 
@@ -115,73 +115,71 @@ if __name__ == '__main__':
             # for editing the proposals boxes  proposals[0]._fields["proposal_boxes"].tensor
             orig_res = pred_instances, {}
             # orig_res = super().forward(images, features, proposals, targets)
-            if not self.training:
-                # print("=" * 9 + "my module" + "=" * 9)
-                if (not self.training) and self.filter_flag and pred_instances[0]:
-                    ins = pred_instances[0]
-                    # ins[ins._fields["pred_classes"] == 2]._fields["pred_boxes"]
+            # print(f"not self.training {not self.training} and self.filter_flag {self.filter_flag} and pred_instances[0] { pred_instances[0]}")
+            if (not self.training) and self.filter_flag and pred_instances[0]:
+                ins = pred_instances[0]
+                # ins[ins._fields["pred_classes"] == 2]._fields["pred_boxes"]
 
-                    keep = torch.ones(len(ins), dtype=bool, device=ins._fields["pred_classes"].device)
-                    open_flock_ins = ins[ins._fields["pred_classes"] == self.OPEN_FLOCK]
-                    spherical_flock_ins = ins[ins._fields["pred_classes"] == self.SPHERICAL_FLOCK]
-                    if not (open_flock_ins and spherical_flock_ins):
-                        return orig_res
-                    keep_tmp = torch.ones(len(spherical_flock_ins), dtype=bool,
-                                          device=ins._fields["pred_classes"].device)
-                    for i in range(len(spherical_flock_ins)):
-                        iou_mat = detectron2.structures.pairwise_iou(spherical_flock_ins[i]._fields['pred_boxes'],
-                                                                     open_flock_ins._fields['pred_boxes'])
+                keep = torch.ones(len(ins), dtype=bool, device=ins._fields["pred_classes"].device)
+                open_flock_ins = ins[ins._fields["pred_classes"] == self.OPEN_FLOCK]
+                spherical_flock_ins = ins[ins._fields["pred_classes"] == self.SPHERICAL_FLOCK]
+                if not (open_flock_ins and spherical_flock_ins):
+                    return orig_res
+                keep_tmp = torch.ones(len(spherical_flock_ins), dtype=bool, device=ins._fields["pred_classes"].device)
+                for i in range(len(spherical_flock_ins)):
+                    iou_mat = detectron2.structures.pairwise_iou(spherical_flock_ins[i]._fields['pred_boxes'], open_flock_ins._fields['pred_boxes'])
 
-                        cond = torch.bitwise_or(
-                            (iou_mat < self.filter_threshold),
-                            (spherical_flock_ins[i]._fields["scores"] >
-                             open_flock_ins._fields["scores"]))
-                        if not cond.all():
-                            print(f">>:cond {cond}")
-                            print(f">>:filterd s ins {spherical_flock_ins[i]}")
-                            print(f">>: iou is  {iou_mat}")
-                            print(f">>:filterd {open_flock_ins._fields['scores']}")
+                    cond =torch.bitwise_or(
+                        (iou_mat < self.filter_threshold) ,
+                                  ( spherical_flock_ins[i]._fields["scores"] >
+                                    open_flock_ins._fields["scores"]))
+                    if not cond.all():
+                        print(f">>:cond {cond}")
+                        print(f">>:filterd s ins {spherical_flock_ins[i]}")
+                        print(f">>: iou is  {iou_mat}")
+                        print(f">>:filterd {open_flock_ins._fields['scores']}")
 
-                        keep_tmp[i] = cond.all()
-                        del cond
+                    keep_tmp[i] = cond.all()
+                    del cond
 
-                    keep[ins._fields["pred_classes"] == self.SPHERICAL_FLOCK] = keep_tmp
+                keep[ins._fields["pred_classes"] == self.SPHERICAL_FLOCK] = keep_tmp
 
-                    # iou_mat = detectron2.structures.pairwise_iou(open_flock_ins._fields["pred_boxes"],
-                    #                                              spherical_flock_ins._fields["pred_boxes"])
+                # iou_mat = detectron2.structures.pairwise_iou(open_flock_ins._fields["pred_boxes"],
+                #                                              spherical_flock_ins._fields["pred_boxes"])
 
-                    try:
-                        # keep[ins._fields["pred_classes"] == self.SPHERICAL_FLOCK] = iou_mat.max(
-                        #     dim=0).values < self.filter_threshold
-                        print(f"filterd {(~keep[ins._fields['pred_classes'] == self.SPHERICAL_FLOCK]).sum()}")
-                    except Exception:
-                        print("=" * 20)
-                        print(f"len of pred {len(ins)}")
-                        print(f"keep shape {keep.shape}")
-                        print(f"iou-mat shape {iou_mat.shape}")
-                        print(
-                            f"OPEN_FLOCK shape {ins[ins._fields['pred_classes'] == self.OPEN_FLOCK]._fields['pred_boxes']}")
-                        print(
-                            f"SPHERICAL_FLOCK shape {ins[ins._fields['pred_classes'] == self.SPHERICAL_FLOCK]._fields['pred_boxes']}")
-                        print("=" * 20)
+                try:
+                    # keep[ins._fields["pred_classes"] == self.SPHERICAL_FLOCK] = iou_mat.max(
+                    #     dim=0).values < self.filter_threshold
+                    print(f"filterd {(~keep[ins._fields['pred_classes'] == self.SPHERICAL_FLOCK]).sum()}")
+                except Exception:
+                    print("=" * 20)
+                    print(f"len of pred {len(ins)}")
+                    print(f"keep shape {keep.shape}")
+                    print(f"iou-mat shape {iou_mat.shape}")
+                    print(
+                        f"OPEN_FLOCK shape {ins[ins._fields['pred_classes'] == self.OPEN_FLOCK]._fields['pred_boxes']}")
+                    print(
+                        f"SPHERICAL_FLOCK shape {ins[ins._fields['pred_classes'] == self.SPHERICAL_FLOCK]._fields['pred_boxes']}")
+                    print("=" * 20)
 
-                    ins._fields["pred_classes"] = ins._fields["pred_classes"][keep]
-                    ins._fields["scores"] = ins._fields["scores"][keep]
-                    ins._fields["pred_boxes"] = ins._fields["pred_boxes"][keep]
-                    # del ins
-                    # del keep
-                    # del open_flock_boxes
-                    # del spherical_flock_boxse
-                    # detectron2.structures.boxes.pairwise_intersection(
-                    #     ins[ins._fields["pred_classes"] == 2]._fields["pred_boxes"],
-                    #     ins[ins._fields["pred_classes"] == 2]._fields["pred_boxes"])
-                # get the predicted boxes with pred_instances[0]._fields["pred_boxes"].tensor
-                # get the class predicted for that box with pred_instances[0]._fields["pred_classes"]
-                # todo need to make sure that removing a sample from the prediction don't break anything
+                ins._fields["pred_classes"] = ins._fields["pred_classes"][keep]
+                ins._fields["scores"] = ins._fields["scores"][keep]
+                ins._fields["pred_boxes"] = ins._fields["pred_boxes"][keep]
+                # del ins
+                # del keep
+                # del open_flock_boxes
+                # del spherical_flock_boxse
+                # detectron2.structures.boxes.pairwise_intersection(
+                #     ins[ins._fields["pred_classes"] == 2]._fields["pred_boxes"],
+                #     ins[ins._fields["pred_classes"] == 2]._fields["pred_boxes"])
+            # get the predicted boxes with pred_instances[0]._fields["pred_boxes"].tensor
+            # get the class predicted for that box with pred_instances[0]._fields["pred_classes"]
+            # todo need to make sure that removing a sample from the prediction don't break anything
 
-                # print(orig_res)
-                # print("=" * 22)
-                return orig_res
+            # print(orig_res)
+            # print("=" * 22)
+            return orig_res
+
 
     # cfg = get_cfg()
     # cfg.merge_from_file(model_zoo.get_config_file("COCO-Detection/faster_rcnn_R_50_C4_1x.yaml"))
@@ -190,40 +188,39 @@ if __name__ == '__main__':
     # cfg.DATALOADER.NUM_WORKERS = 2
     # cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(
     #     "COCO-Detection/faster_rcnn_R_50_C4_1x.yaml")  # initialize from model zoo
-    # cfg.SOLVER.IMS_PER_BATCH = 1
+    # cfg.SOLVER.IMS_PER_BATCH = 4
     # cfg.SOLVER.BASE_LR = 0.002
     # cfg.SOLVER.MAX_ITER = 1000  # 300 iterations seems good enough, but you can certainly train longer
-    # cfg.MODEL.ROI_HEADS.NAME = "My_Res5ROIHeads"
-    # cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 1  # faster, and good enough for this toy dataset
+    # # cfg.MODEL.ROI_HEADS.NAME = "My_Res5ROIHeads"
+    # cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 128  # faster, and good enough for this toy dataset
     # cfg.MODEL.ROI_HEADS.NUM_CLASSES = 5  # 3 classes (data, fig, hazelnut)
     # cfg.TEST.EVAL_PERIOD = 100
-
+    #
     cfg = get_cfg()
-    cfg.merge_from_file(model_zoo.get_config_file("COCO-Detection/faster_rcnn_R_50_C4_1x.yaml"))
-    cfg.DATASETS.TRAIN = ("ww_train",)
-    cfg.DATASETS.TEST = ("ww_eval",)  # no metrics implemented for this dataset
-    cfg.DATALOADER.NUM_WORKERS = 2
-    cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(
-        "COCO-Detection/faster_rcnn_R_50_C4_1x.yaml")  # initialize from model zoo
-    cfg.SOLVER.IMS_PER_BATCH = 4
+    # cfg.merge_from_file(model_zoo.get_config_file("COCO-Detection/faster_rcnn_R_50_C4_1x.yaml"))
+    # cfg.DATASETS.TRAIN = ("ww_train",)
+    # cfg.DATASETS.TEST = ("ww_eval",)  # no metrics implemented for this dataset
+    cfg.DATALOADER.NUM_WORKERS = 1
+    cfg.SOLVER.IMS_PER_BATCH = 2
     cfg.SOLVER.BASE_LR = 0.002
     cfg.SOLVER.MAX_ITER = 1000  # 300 iterations seems good enough, but you can certainly train longer
-    # cfg.MODEL.ROI_HEADS.NAME = "My_Res5ROIHeads"
+    cfg.MODEL.ROI_HEADS.NAME = "My_Res5ROIHeads"
     cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 128  # faster, and good enough for this toy dataset
     cfg.MODEL.ROI_HEADS.NUM_CLASSES = 5  # 3 classes (data, fig, hazelnut)
     cfg.TEST.EVAL_PERIOD = 100
+    cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, "model_final.pth")
+    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.85  # set the testing threshold for this model
+    cfg.DATASETS.TEST = ("ww_test",)
 
+    model = build_model(cfg)
+    from detectron2.checkpoint import DetectionCheckpointer
 
-    os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
-    trainer = MyTrainer(cfg)
-    trainer.resume_or_load(resume=False)
-    trainer.model.roi_heads.filter_threshold = 0.13
-    trainer.model.roi_heads.SPHERICAL_FLOCK = 4
-    trainer.model.roi_heads.OPEN_FLOCK = 2
-    trainer.model.roi_heads.filter_flag = True
-
-    trainer.train()
+    DetectionCheckpointer(model).load("../output/model_final.pth")
+    model.roi_heads.filter_threshold = 0.3
+    model.roi_heads.SPHERICAL_FLOCK = 4
+    model.roi_heads.OPEN_FLOCK = 2
+    model.roi_heads.filter_flag = True
 
     evaluator = COCOEvaluator("ww_test", cfg, False, output_dir="../output/")
     val_loader = build_detection_test_loader(cfg, "ww_test")
-    out = inference_on_dataset(trainer.model, val_loader, evaluator)
+    out = inference_on_dataset(model, val_loader, evaluator)
